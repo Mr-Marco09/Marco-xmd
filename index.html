@@ -4,34 +4,37 @@
     <meta charset="UTF-8">
     <title>Marco xmd</title>
     <style>
-        body { background: black; color: #0f0; font-family: 'Courier New', monospace; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        #matrix { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.3; }
-        .container { border: 2px solid #0f0; padding: 30px; text-align: center; background: rgba(0, 20, 0, 0.9); box-shadow: 0 0 20px #0f0; }
-        input { background: #000; border: 1px solid #0f0; color: #0f0; padding: 10px; margin: 10px; width: 80%; }
-        button { background: #0f0; color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; }
-        #code-display { margin-top: 20px; font-size: 24px; letter-spacing: 5px; color: yellow; }
+        body { margin: 0; background: black; color: #0f0; font-family: 'Courier New', monospace; overflow: hidden; }
+        canvas { position: absolute; top: 0; left: 0; z-index: -1; }
+        .container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+        .box { border: 2px solid #0f0; padding: 20px; background: rgba(0,0,0,0.8); text-align: center; box-shadow: 0 0 20px #0f0; }
+        input { background: transparent; border: 1px solid #0f0; color: #0f0; padding: 10px; margin: 10px; width: 250px; text-align: center; }
+        button { background: #0f0; color: black; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; }
+        #codeDisplay { font-size: 2em; margin-top: 15px; letter-spacing: 5px; display: none; }
     </style>
 </head>
 <body>
     <canvas id="matrix"></canvas>
     <div class="container">
-        <h1>MARCO XMD</h1>
-        <h2>Bienvenue sur Marco xmd</h2>
-        <p>Veuillez entrer votre numéro ci-dessous :</p>
-        <input type="text" id="number" placeholder="Ex: 50931234567">
-        <br>
-        <button onclick="generatePairing()">GÉNÉRER LE CODE</button>
-        <div id="code-display"></div>
-        <button id="copy-btn" style="display:none;" onclick="copyCode()">Copier le code</button>
+        <div class="box">
+            <h1>𝐌𝐚𝐫𝐜𝐨 𝐱𝐦𝐝</h1>
+            <h2>Bienvenue sur Marco xmd</h2>
+            <p id="statusText">Veuillez entrer votre numéro ci-dessous (ex: 509...)</p>
+            <input type="text" id="phone" placeholder="Numéro sans +">
+            <br>
+            <button id="genBtn" onclick="generatePairing()">GÉNÉRER LE CODE</button>
+            <div id="codeDisplay"></div>
+            <button id="copyBtn" style="display:none;" onclick="copyCode()">COPIER LE CODE</button>
+        </div>
     </div>
 
     <script>
-        // Script pour l'effet Matrix
+        // Effet Matrix
         const canvas = document.getElementById('matrix');
         const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
-        const letters = "0123456789";
+        canvas.width = window.innerWidth;
+        const letters = "0123456789ABCDEFHIJKLMNOPQRSTUVWXYZ";
         const fontSize = 16;
         const columns = canvas.width / fontSize;
         const drops = Array(Math.floor(columns)).fill(1);
@@ -39,23 +42,39 @@
         function draw() {
             ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "#0f0";
+            ctx.fillStyle = "#0F0";
             ctx.font = fontSize + "px arial";
-            for (let i = 0; i < drops.length; i++) {
-                const text = letters.charAt(Math.floor(Math.random() * letters.length));
-                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
-                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+            drops.forEach((y, i) => {
+                const text = letters[Math.floor(Math.random() * letters.length)];
+                ctx.fillText(text, i * fontSize, y * fontSize);
+                if (y * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
                 drops[i]++;
-            }
+            });
         }
         setInterval(draw, 33);
 
+        // Logique de Pairing
         async function generatePairing() {
-            const num = document.getElementById('number').value;
+            const num = document.getElementById('phone').value;
             if(!num) return alert("Entrez un numéro !");
-            // Ici on appellerait l'API du bot pour le pairing
-            document.getElementById('code-display').innerText = "MR-MARCO-XXXX"; 
-            document.getElementById('copy-btn').style.display = "inline-block";
+            document.getElementById('statusText').innerText = "Génération en cours...";
+            
+            const res = await fetch(`/pair?number=${num}`);
+            const data = await res.json();
+            
+            if(data.code) {
+                document.getElementById('statusText').innerText = "VOICI VOTRE CODE :";
+                document.getElementById('codeDisplay').innerText = data.code;
+                document.getElementById('codeDisplay').style.display = "block";
+                document.getElementById('genBtn').style.display = "none";
+                document.getElementById('copyBtn').style.display = "inline-block";
+            }
+        }
+
+        function copyCode() {
+            const code = document.getElementById('codeDisplay').innerText;
+            navigator.clipboard.writeText(code);
+            alert("Code copié ! Collez-le sur WhatsApp.");
         }
     </script>
 </body>
