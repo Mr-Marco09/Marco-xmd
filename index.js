@@ -1,66 +1,93 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require("@whiskeysockets/baileys");
-const express = require('express');
-const path = require('path');
-const pino = require('pino');
+////index.js corriger////
+const { default: makeWASocket, useMultiFileAuthState, delay, makeCacheableSignalKeyStore } = require("@whiskeysockets/baileys");
+const pino = require("pino");
+const express = require("express");
+const path = require("path");
+const fs = require("fs");
+const config = require("./config.json");
+
 const app = express();
-
 const PORT = process.env.PORT || 3000;
-let privateMode = false;
 
-async function startMarcoXmd() {
-    const { state, saveCreds } = await useMultiFileAuthState('sessions');
+// Ton lien logo direct
+const LOGO = "https://postimg.cc/rK3NWdk1";
+
+app.get('/', (req, res) => { res.sendFile(path.join(__dirname, '/index.html')); });
+
+async function startMarco() {
+    const { state, saveCreds } = await useMultiFileAuthState('session');
     
-    const bot = makeWASocket({
-        logger: pino({ level: 'silent' }),
-        auth: state,
-        printQRInTerminal: true
+    const marco = makeWASocket({
+        auth: {
+            creds: state.creds,
+            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
+        },
+        printQRInTerminal: false,
+        logger: pino({ level: "fatal" }),
+        browser: ["Ubuntu", "Chrome", "20.0.04"]
     });
 
-    // Serveur Web pour Render
-    app.get('/', (req, res) => res.sendFile(path.join(__dirname, '/index.html')));
-    app.listen(PORT, () => console.log(`Serveur Marco xmd sur port ${PORT}`));
+    app.get('/pair', async (req, res) => {
+        let num = req.query.number;
+        if (!num) return res.json({ error: "Numéro manquant" });
+        try {
+            let code = await marco.requestPairingCode(num);
+            res.json({ code: code });
+        } catch (err) {
+            res.json({ error: "Erreur serveur" });
+        }
+    });
 
-    bot.ev.on('creds.update', saveCreds);
+    marco.ev.on('creds.update', saveCreds);
 
-    bot.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect } = update;
+    marco.ev.on('connection.update', async (update) => {
+        const { connection } = update;
         if (connection === 'open') {
-            console.log("MArco xmd : Connecté avec succès ! 🇭🇹");
-            bot.sendMessage(bot.user.id, { text: "𝐌𝐚𝐫𝐜𝐨 𝐱𝐦𝐝 connecté !\nDev: 𝐌𝐫 𝐌𝐚𝐫𝐜𝐨" });
-            // Rejoindre le canal (exemple)
-            bot.groupAcceptInvite("ID_DU_CHANNEL");
+            console.log("Connecté avec succès !");
+            // Ajout du logo dans le message de démarrage
+            await marco.sendMessage(config.ownerNumber + "@s.whatsapp.net", { 
+                image: { url: LOGO }, 
+                caption: `🚀 *${config.botName}* connecté !\nDev: ${config.ownerName}\nMode: ${config.privateMode ? 'Privé' : 'Public'}` 
+            });
+            await marco.newsletterFollow("0029VbASWFzHFxP6cbTkkz08");
         }
-        if (connection === 'close') {
-            let reason = lastDisconnect.error?.output?.statusCode;
-            if (reason !== DisconnectReason.loggedOut) startMarcoXmd();
-        }
+        if (connection === 'close') startMarco(); 
     });
 
-    // Gestion des messages et commandes
-    bot.ev.on('messages.upsert', async m => {
+    marco.ev.on('messages.upsert', async m => {
         const msg = m.messages[0];
-        if (!msg.message) return;
+        if (!msg.message || msg.key.fromMe) return;
+
         const from = msg.key.remoteJid;
-        const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
+        const text = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
+        
+        if(config.privateMode && msg.key.remoteJid !== config.ownerNumber + "@s.whatsapp.net") return;
 
-        // Mode Privé
-        if (privateMode && !msg.key.fromMe) return;
+        await marco.sendMessage(from, { react: { text: "⚡", key: msg.key } });
 
-        // Exemple commande simple
-        if (text === '.ping') {
-            await bot.sendMessage(from, { text: 'Pong! 🏓 Marco xmd est actif.' });
+        if(text.startsWith(".play")) {
+            // Ajout du logo dans la réponse de commande
+            await marco.sendMessage(from, { 
+                image: { url: LOGO }, 
+                caption: "⏳ Téléchargement de votre musique via Marco XMD..." 
+            });
         }
     });
 
-    // Welcome / Goodbye
-    bot.ev.on('group-participants.update', async (anu) => {
-        const metadata = await bot.groupMetadata(anu.id);
+    marco.ev.on('group-participants.update', async (anu) => {
+        const metadatas = await marco.groupMetadata(anu.id);
         if (anu.action == 'add') {
-            bot.sendMessage(anu.id, { text: `Bienvenue chez les Marco's sur ${metadata.subject} !` });
+            // Ajout du logo dans le message de bienvenue
+            marco.sendMessage(anu.id, { 
+                image: { url: LOGO },
+                caption: `Bienvenue @${anu.participants[0].split('@')[0]} dans ${metadatas.subject}`, 
+                mentions: [anu.participants[0]] 
+            });
         } else if (anu.action == 'remove') {
-            bot.sendMessage(anu.id, { text: `Un membre a quitté le navire... Bye !` });
+            marco.sendMessage(anu.id, { text: `Au revoir @${anu.participants[0].split('@')[0]}...`, mentions: [anu.participants[0]] });
         }
     });
 }
 
-startMarcoXmd();
+app.listen(PORT, () => console.log(`Serveur Web Marco XMD sur port ${PORT}`));
+startMarco();
