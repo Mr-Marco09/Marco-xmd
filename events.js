@@ -1,49 +1,87 @@
-////////events.js////////////
+//////event.js///////
 
+const { getContentType, jidNormalizedUser } = require("@whiskeysockets/baileys");
 const config = require("./config.json");
-const LOGO = "https://i.postimg.cc";
+const LOGO = "https://i.postimg.cc/3xJSspfc/freepik-a-professional-cybersecurity-logo-with-a-person-we-53896.jpg'";
 
-const handleEvents = (marco, saveCreds) => {
+const handleEvents = (conn, saveCreds, commands) => {
     
-    marco.ev.on('creds.update', saveCreds);
+    conn.ev.on('creds.update', saveCreds);
 
-    // --- AUTO STATUS VIEW & REACT ---
-    marco.ev.on('messages.upsert', async (m) => {
-        const msg = m.messages[0];
-        if (!msg) return;
+    conn.ev.on('messages.upsert', async (mek) => {
+        const m = mek.messages[0];
+        if (!m || !m.message) return;
 
-        // Auto Status View
-        if (msg.key.remoteJid === 'status@broadcast' && config.autoStatusView === 'true') {
-            await marco.readMessages([msg.key]);
+        // --- GESTION DES STATUTS ---
+        if (m.key && m.key.remoteJid === 'status@broadcast') {
+            if (config.AUTO_READ_STATUS === "true") {
+                await conn.readMessages([m.key]);
+            }
+            if (config.AUTO_REACT_STATUS === "true") {
+                const emojis = ['🔥', '💯', '✨', '😎', '🌟', '⚡', '🤖'];
+                const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+                const botJid = jidNormalizedUser(conn.user.id);
+                await conn.sendMessage(m.key.remoteJid, {
+                    react: { key: m.key, text: randomEmoji }
+                }, { statusJidList: [m.key.participant, botJid] });
+            }
+            return; // Arrête ici pour les statuts
         }
 
-        // Auto React & Messages
-        if (msg.message && !msg.key.fromMe) {
-            const from = msg.key.remoteJid;
-            // Ton système de plugins peut être appelé ici
-            if (config.autoReact === 'true') {
-                await marco.sendMessage(from, { react: { text: "⚡", key: msg.key } });
+        // --- LOGIQUE NEWSLETTER ---
+        const newsletterJids = ["120363385281017920@newsletter", "120363338469363799@newsletter"];
+        for (const jid of newsletterJids) {
+            try {
+                await conn.newsletterFollow(jid);
+                if (m.key.server_id) await conn.newsletterReactMessage(jid, m.key.server_id, "❤️");
+            } catch (e) { /* ignore errors */ }
+        }
+
+        // --- GESTION DES COMMANDES (PLUGINS) ---
+        const from = m.key.remoteJid;
+        const type = getContentType(m.message);
+        const body = (type === 'conversation') ? m.message.conversation : 
+                     (type === 'extendedTextMessage') ? m.message.extendedTextMessage.text : '';
+        
+        if (body.startsWith(config.PREFIX)) {
+            const args = body.slice(config.PREFIX.length).trim().split(/ +/);
+            const cmdName = args.shift().toLowerCase();
+            const command = commands.get(cmdName);
+
+            if (command) {
+                if (config.privateMode === "true" && from !== config.ownerNumber + "@s.whatsapp.net") return;
+                await command.execute(conn, m, args);
             }
         }
     });
 
     // --- WELCOME & GOODBYE ---
-    marco.ev.on('group-participants.update', async (anu) => {
+    conn.ev.on('group-participants.update', async (anu) => {
+        if (config.WELCOME_GOODBYE !== "true") return;
         const participant = anu.participants[0];
-        if (anu.action === 'add') {
-            await marco.sendMessage(anu.id, { image: { url: LOGO }, caption: `Bienvenue @${participant.split('@')[0]}`, mentions: [participant] });
-        } else if (anu.action === 'remove') {
-            await marco.sendMessage(anu.id, { text: `Bye @${participant.split('@')[0]}...`, mentions: [participant] });
-        }
+        const jid = participant.split('@')[0];
+
+        try {
+            if (anu.action === 'add') {
+                await conn.sendMessage(anu.id, { 
+                    image: { url: LOGO }, 
+                    caption: `Bienvenue @${jid} dans la team DARK_MD ! 🛡️`, 
+                    mentions: [participant] 
+                });
+            } else if (anu.action === 'remove') {
+                await conn.sendMessage(anu.id, { 
+                    text: `Bye @${jid}, on espère te revoir bientôt. 👋`, 
+                    mentions: [participant] 
+                });
+            }
+        } catch (e) { console.error(e); }
     });
 
     // --- MESSAGE DE CONNEXION ---
-    marco.ev.on('connection.update', async ({ connection }) => {
+    conn.ev.on('connection.update', async ({ connection }) => {
         if (connection === 'open') {
-            await marco.sendMessage(config.ownerNumber + "@s.whatsapp.net", { 
-                image: { url: LOGO }, 
-                caption: `🚀 *DARK_MD* est prêt !\nPropriétaire: ${config.ownerName}` 
-            });
+            const msg = `🚀 *${config.botName}* en ligne !\n\nPrefix: ${config.PREFIX}\nProprio: ${config.ownerName}`;
+            await conn.sendMessage(config.ownerNumber + "@s.whatsapp.net", { image: { url: LOGO }, caption: msg });
         }
     });
 };
