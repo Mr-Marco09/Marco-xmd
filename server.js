@@ -1,9 +1,11 @@
-/////////server.js/////////////
+///////// server.js corrigé /////////////
 
 const express = require("express");
 const path = require("path");
 const app = express();
-const PORT = process.env.PORT || 1000;
+
+// Render utilise le port 10000 par défaut, ne force pas le 1000
+const PORT = process.env.PORT || 10000; 
 
 const startServer = (marco) => {
     app.get('/', (req, res) => res.sendFile(path.join(__dirname, '/index.html')));
@@ -20,7 +22,8 @@ const startServer = (marco) => {
         }
     });
 
-    app.listen(PORT, () => console.log(`🌍 Serveur sur port ${PORT}`));
+    // Ajout de '0.0.0.0' pour s'assurer que le serveur accepte les connexions externes sur Render
+    app.listen(PORT, '0.0.0.0', () => console.log(`🌍 Serveur sur port ${PORT}`));
 };
 
 module.exports = { startServer };
