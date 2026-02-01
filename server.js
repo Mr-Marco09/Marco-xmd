@@ -3,7 +3,7 @@
 const express = require("express");
 const path = require("path");
 const app = express();
-const PORT = process.env.PORT || 1000;
+const PORT = process.env.PORT || 10000;
 
 const startServer = (marco) => {
     app.get('/', (req, res) => res.sendFile(path.join(__dirname, '/index.html')));
