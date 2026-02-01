@@ -1,6 +1,7 @@
-//////plugins/play.js////////
+////plugins/play.js//////
 
 const yts = require('yt-search');
+const config = require("../config.json");
 
 module.exports = {
     name: "play",
@@ -9,10 +10,10 @@ module.exports = {
         const from = m.key.remoteJid;
         const text = args.join(" ");
 
-        if (!text) return await conn.sendMessage(from, { text: "⚠️ Veuillez préciser le nom d'une musique.\nExemple : *.play Imagine Dragons Believer*" });
+        if (!text) return await conn.sendMessage(from, { text: `⚠️ Veuillez préciser le nom d'une musique.\nExemple : *${config.prefix}play Imagine Dragons Believer*` });
 
         try {
-            // Envoi de la réaction de chargement
+            // Réaction de chargement
             await conn.sendMessage(from, { react: { text: "⏳", key: m.key } });
 
             // Recherche sur YouTube
@@ -21,22 +22,23 @@ module.exports = {
 
             if (!video) return await conn.sendMessage(from, { text: "❌ Musique non trouvée." });
 
-            const infoMsg = `🎧 *DARK_MD MUSIC PLAYER* 🎧\n\n` +
+            const infoMsg = `🎧 *${config.botName.toUpperCase()} PLAYER* 🎧\n\n` +
                             `📝 *Titre :* ${video.title}\n` +
                             `⏱️ *Durée :* ${video.timestamp}\n` +
+                            `👤 *Chaîne :* ${video.author.name}\n` +
                             `🔗 *Lien :* ${video.url}\n\n` +
-                            `> Envoi de l'audio en cours...`;
+                            `> 🔄 Envoi de l'audio en cours...`;
 
-            // Envoi de l'affiche et des infos
+            // Envoi de la miniature et des infos
             await conn.sendMessage(from, { 
                 image: { url: video.thumbnail }, 
                 caption: infoMsg 
-            });
+            }, { quoted: m });
 
-            // ICI : Logique de téléchargement (via API ou librairie)
-            // Exemple avec un lien de téléchargement direct ou un buffer
+            // ENVOI DE L'AUDIO
+            // Note : L'URL ci-dessous est un exemple d'API. Assure-toi qu'elle est fonctionnelle.
             await conn.sendMessage(from, { 
-                audio: { url: `https://api.vyt-loader.xyz{video.url}` }, // Exemple d'API externe
+                audio: { url: `https://api.vyt-loader.xyz{video.url}` }, 
                 mimetype: 'audio/mp4',
                 ptt: false
             }, { quoted: m });
@@ -44,8 +46,8 @@ module.exports = {
             await conn.sendMessage(from, { react: { text: "✅", key: m.key } });
 
         } catch (error) {
-            console.error(error);
-            await conn.sendMessage(from, { text: "❌ Une erreur est survenue lors du téléchargement." });
+            console.error("Erreur Play:", error);
+            await conn.sendMessage(from, { text: "❌ Une erreur est survenue. L'API de téléchargement est peut-être hors ligne." });
         }
     }
 };
