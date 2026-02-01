@@ -10,7 +10,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Ton lien logo direct
-const LOGO = "https://postimg.cc/rK3NWdk1";
+const LOGO = "https://i.postimg.cc/3xJSspfc/freepik_a_professional_cybersecurity_logo_with_a_person_we_53896.jpg";
 
 app.get('/', (req, res) => { res.sendFile(path.join(__dirname, '/index.html')); });
 
