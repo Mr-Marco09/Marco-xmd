@@ -13,7 +13,7 @@ const config = require("./config.json");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const LOGO = "https://i.postimg.cc";
+const LOGO = "https://i.postimg.cc/3xJSspfc/freepik_a_professional_cybersecurity_logo_with_a_person_we_53896.jpg";
 
 let marco = null;
 
