@@ -1,124 +1,46 @@
-
-const { cmd, commands } = require('../lib/command');
 const axios = require("axios");
 const yts = require("yt-search");
+const config = require("../config.json");
 
-cmd({
-    pattern: "song",
+module.exports = {
+    name: "song",
     alias: ["play"],
-    desc: "Download songs from YouTube.",
-    react: "🎵",
     category: "download",
-    filename: __filename
-}, async (conn, mek, m, { from, args, q, reply }) => {
-    try {
-        if (!q) return reply("❌ Please provide a YouTube link or search query!");
+    desc: "Télécharger de la musique YouTube",
+    async execute(conn, mek, args) {
+        const from = mek.key.remoteJid;
+        const q = args.join(" ");
+        
+        if (!q) return conn.sendMessage(from, { text: "❌ Donne-moi un titre ou un lien YouTube !" }, { quoted: mek });
 
-        let ytUrl;
-        if (q.includes("youtube.com") || q.includes("youtu.be")) {
-            ytUrl = q;
-        } else {
-            reply("🔎 Searching YouTube...");
-            const search = await yts(q);
-            if (!search.videos || search.videos.length === 0) {
-                return reply("❌ No results found!");
-            }
-            ytUrl = search.videos[0].url;
-        }
-
-        reply("⏳ Fetching song...");
-
-        const apiBase = "https://www.laksidunimsara.com/song";
-        const apiKey = "Lk8*Vf3!sA1pZ6Hd"; // api key එක බන්
-        const apiUrl = `${apiBase}?url=${encodeURIComponent(ytUrl)}&api_key=${encodeURIComponent(apiKey)}`;
-
-        let response;
         try {
-            response = await axios.get(apiUrl);
-        } catch (err) {
-            console.error("🚨 API request failed:", err);
-            return reply("❌ Failed to contact song API.");
+            // Recherche YouTube
+            const search = await yts(q);
+            const video = search.videos[0];
+            if (!video) return conn.sendMessage(from, { text: "❌ Aucun résultat." });
+
+            const apiUrl = `https://www.laksidunimsara.com{encodeURIComponent(video.url)}&api_key=Lk8*Vf3!sA1pZ6Hd`;
+            const response = await axios.get(apiUrl);
+            
+            if (response.data.status !== "success") return conn.sendMessage(from, { text: "❌ Erreur API." });
+
+            const downloadUrl = response.data.download;
+
+            // Envoi du message avec le choix
+            const desc = `🎵 *${video.title}*\n\n1️⃣ Audio (MP3)\n2️⃣ Document\n3️⃣ Note vocale\n\n*Réponds avec le chiffre.*`;
+            
+            await conn.sendMessage(from, { 
+                image: { url: video.thumbnail }, 
+                caption: desc 
+            }, { quoted: mek });
+
+            // Note : Pour gérer la réponse proprement (1, 2, ou 3), 
+            // il est préférable d'utiliser un gestionnaire de réponses (Reply Handler) 
+            // dans ton events.js plutôt que de créer un .on() ici.
+
+        } catch (e) {
+            console.error(e);
+            conn.sendMessage(from, { text: "❌ Erreur lors du traitement." });
         }
-
-        if (!response.data || response.data.status !== "success") {
-            console.log("API RESPONSE:", response.data);
-            return reply("❌ API did not return a valid response.");
-        }
-
-        const video = response.data.video;
-        const downloadUrl = response.data.download;
-
-        let desc = `
-╔═════✦⭒❖⭒✦═════╗
-  🎶 *𝐒𝐎𝐍𝐆 𝐃𝐎𝐖𝐍𝐋𝐎𝐃𝐄* 🎶
-╚═════✦⭒❖⭒✦═════╝
-
-➤ 🎧 *Title:* ${video.title}
-➤ ⏱️ *Duration:* ${video.duration}
-➤ 📅 *Uploaded:* ${video.author}
-
-╔═════✦⭒❖⭒✦═════╗
-   ⬇️ *DOWNLOAD OPTIONS* ⬇️
-╚═════✦⭒❖⭒✦═════╝
-
-│ ① 🎵 *Audio*
-│ ② 📄 *Document*
-│ ③ 🎙️ *Voice Note*
-
-𝐑ᴇᴘʟʏ 𝐓ʜᴇ 𝐍ᴜᴍʙᴇʀ 𝐘ᴏᴜ 𝐖ᴀɴᴛ 𝐓ᴏ 𝐒ᴇʟᴇᴄᴛ.......👁️❗
-
-> 𝐏𝙾𝚆𝙴𝚁𝙳 𝐁𝚈 *𝐌𝐚𝐫𝐜𝐨�*
-`;
-
-        const sentMsg = await conn.sendMessage(from, {
-            image: { url: video.thumbnail },
-            caption: desc
-        }, { quoted: mek });
-
-        const messageID = sentMsg.key.id;
-
-        conn.ev.on('messages.upsert', async (messageUpdate) => {
-            const mek2 = messageUpdate.messages[0];
-            if (!mek2.message) return;
-
-            const textMsg = mek2.message.conversation || mek2.message.extendedTextMessage?.text;
-            const fromReply = mek2.key.remoteJid;
-
-            const isReplyToSentMsg = mek2.message.extendedTextMessage &&
-                mek2.message.extendedTextMessage.contextInfo?.stanzaId === messageID;
-            if (!isReplyToSentMsg) return;
-
-            if (["1", "2", "3"].includes(textMsg)) {
-                await conn.sendMessage(fromReply, { react: { text: '⬇️', key: mek2.key } });
-
-                if (textMsg === "1") {
-                    await conn.sendMessage(fromReply, {
-                        audio: { url: downloadUrl },
-                        mimetype: "audio/mpeg",
-                        ptt: false
-                    }, { quoted: mek2 });
-
-                } else if (textMsg === "2") {
-                    await conn.sendMessage(fromReply, {
-                        document: { url: downloadUrl },
-                        mimetype: "audio/mpeg",
-                        fileName: `${video.title}.mp3`,
-                        caption: `🎵 Downloaded 𝐒ᴜʟᴀ....!"�`
-                    }, { quoted: mek2 });
-
-                } else if (textMsg === "3") {
-                    await conn.sendMessage(fromReply, {
-                        audio: { url: downloadUrl },
-                        mimetype: "audio/mpeg",
-                        ptt: true
-                    }, { quoted: mek2 });
-                }
-
-                await conn.sendMessage(fromReply, { react: { text: '⬆️', key: mek2.key } });
-            }
-        });
-
-    } catch (e) {
-        console.log("🚨 ERROR DETAILS:", e);  //ටහුකන්න ගස් මෝල් ගොන් කැරියා
-        reply("❌ An error occurred while processing your request.");
     }
+};
