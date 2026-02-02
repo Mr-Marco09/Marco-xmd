@@ -14,11 +14,8 @@ module.exports = {
 ┃ 👤 *Owner:* ${config.ownerName}
 ┃ 📦 *Commands:* 312
 ┃ ⏳ *Runtime:* ${runtime}
-┃ 🏗️ *Baileys:* Multi Device
-┃ ☁️ *Platform:* Render
 ┃ 🔘 *Prefix:* ${config.prefix}
 ┃ 🔒 *Mode:* ${config.privateMode ? 'Private' : 'Public'}
-┃ 📜 *Version:* 1.0.0 BETA
 ╰━━━━━━━━━━━━━━━━━━━━━━┈⊷
 
 「 *DOWNLOAD* 」
@@ -31,20 +28,16 @@ module.exports = {
 > *𝐏𝐎𝐖𝐄𝐑𝐄𝐃 𝐁𝐘 𝐌𝐑 𝐌𝐀𝐑𝐂𝐎* 🛡️`;
 
         await conn.sendMessage(from, {
-            text: menuText,
+            image: { url: config.botLogo }, // Envoie l'image seule (propre)
+            caption: menuText,             // Ton texte en dessous
             contextInfo: {
+                isForwarded: true,
                 forwardingScore: 999,
-                isForwarded: true, // Ajoute la flèche "Transféré" en haut
-                externalAdReply: {
-                    title: `🛡️ ${config.botName.toUpperCase()} - CANAL`,
-                    body: `Cliquez pour rejoindre`,
-                    thumbnailUrl: config.botLogo,
-                    // --- CONFIGURATION DU BOUTON VERT ---
-                    mediaType: 4, // 4 = Newsletter (Force le bouton "Voir la chaîne" en bas)
-                    sourceUrl: config.channelLink,
-                    renderLargerThumbnail: true,
-                    newsletterJid: "120363233306161477@newsletter", // Simule l'ID du canal
-                    newsletterName: config.botName
+                // C'est ce bloc qui crée le BOUTON CLIQUABLE vert en bas
+                forwardedNewsletterMessageInfo: {
+                    newsletterJid: "120363233306161477@newsletter", // ID fictif de canal
+                    serverMessageId: 100,
+                    newsletterName: "Voir la chaîne" // Texte du bouton
                 }
             }
         }, { quoted: mek });
