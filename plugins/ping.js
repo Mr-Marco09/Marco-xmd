@@ -1,22 +1,42 @@
-///////plugins/ping.js/////
 const config = require("../config.json");
 
 module.exports = {
     name: "ping",
-    description: "Vérifie la latence du bot",
-    async execute(conn, m, args) {
-        const from = m.key.remoteJid;
-        
-        // Calcul de la latence
-        const start = Date.now();
-        const firstMsg = await conn.sendMessage(from, { text: "Calcul en cours..." }, { quoted: m });
-        const end = Date.now();
-        const latency = end - start;
+    alias: ["speed"],
+    category: "main",
+    desc: "Vérifie la vitesse du bot",
+    async execute(conn, mek, args) {
+        const from = mek.key.remoteJid;
 
-        // Mise à jour du message avec le temps de réponse
-        await conn.sendMessage(from, { 
-            text: `*🏓 Pong !*\n\n🚀 Vitesse : *${latency}ms*\n🤖 Bot : *${config.botName}*`,
-            edit: firstMsg.key 
-        });
+        // 1. Création du "Fake Quoted" (le message de statut stylé)
+        const fakeStatus = {
+            key: {
+                fromMe: false,
+                participant: "0@s.whatsapp.net",
+                remoteJid: "status@broadcast"
+            },
+            message: {
+                conversation: `🕒 𝐃𝐀𝐓𝐄 : ${new Date().toLocaleDateString()}`
+            }
+        };
+
+        try {
+            const startTime = Date.now();
+            
+            // 2. Premier message pour calculer la latence
+            const { key } = await conn.sendMessage(from, { text: '> *ᴘɪɴɢɪɴɢ...*' });
+            
+            const endTime = Date.now();
+            const ping = endTime - startTime;
+
+            // 3. Envoi du résultat avec ton style
+            await conn.sendMessage(from, { 
+                text: `> *𝐌𝐚𝐫𝐜𝐨 𝐗𝐌𝐃 𝐒ᴘᴇᴇᴅ : ${ping}ms 🍷*` 
+            }, { quoted: fakeStatus });
+
+        } catch (e) {
+            console.error(e);
+            conn.sendMessage(from, { text: "❌ Erreur de ping." });
+        }
     }
 };
